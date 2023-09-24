@@ -1,0 +1,12 @@
+[package]
+name = "dedede"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+softbuffer = "0.3.1"
+stl_io = "0.7.0"
+ultraviolet = { version = "0.9.2", features = ["f64", "int"] }
+winit = "0.28.6"
