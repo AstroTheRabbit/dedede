@@ -9,21 +9,23 @@ pub struct AABB {
     pub max_y: f32,
 }
 
-impl From<&Triangle2D> for AABB {
-    fn from(value: &Triangle2D) -> Self {
-        AABB {
-            min_x: value.v0.x.min(value.v1.x).min(value.v2.x),
-            max_x: value.v0.x.max(value.v1.x).max(value.v2.x),
-            min_y: value.v0.y.min(value.v1.y).min(value.v2.y),
-            max_y: value.v0.y.max(value.v1.y).max(value.v2.y),
+impl AABB {
+    pub fn new(min_x: f32, max_x: f32, min_y: f32, max_y: f32) -> Self {
+        Self {
+            min_x,
+            max_x,
+            min_y,
+            max_y,
         }
     }
-}
-
-impl AABB {
 
     pub fn from_points(min: Vec2, max: Vec2) -> Self {
-        Self { min_x: min.x, max_x: max.x, min_y: min.y, max_y: max.y }
+        Self {
+            min_x: min.x,
+            max_x: max.x,
+            min_y: min.y,
+            max_y: max.y,
+        }
     }
 
     pub fn point_in_aabb(&self, point: &Vec2) -> bool {
@@ -37,6 +39,21 @@ impl AABB {
             max_x: f32::min(self.max_x, other.max_x),
             min_y: f32::max(self.min_y, other.min_y),
             max_y: f32::min(self.max_y, other.max_y),
+        }
+    }
+
+    pub fn size(&self) -> f32 {
+        (self.max_x - self.min_x) * (self.max_y - self.min_y)
+    }
+}
+
+impl From<&Triangle2D> for AABB {
+    fn from(value: &Triangle2D) -> Self {
+        AABB {
+            min_x: value.v0.x.min(value.v1.x).min(value.v2.x),
+            max_x: value.v0.x.max(value.v1.x).max(value.v2.x),
+            min_y: value.v0.y.min(value.v1.y).min(value.v2.y),
+            max_y: value.v0.y.max(value.v1.y).max(value.v2.y),
         }
     }
 }
@@ -69,11 +86,11 @@ impl Iterator for AABBIter {
     type Item = Vec2;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.x > self.inner.max_x.ceil() {
+        if self.x > self.inner.max_x.floor() {
             self.x = self.inner.min_x.floor();
             self.y += 1.;
-            
-            if self.y > self.inner.max_y.ceil() {
+
+            if self.y > self.inner.max_y.floor() {
                 return None;
             }
         }
