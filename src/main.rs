@@ -16,7 +16,8 @@ mod scene;
 mod triangle;
 
 use object::Object;
-use std::num::NonZeroU32;
+use ultraviolet::{Rotor3, Vec3};
+use std::{num::NonZeroU32, f32::consts::PI};
 use winit::{
     event::{Event, WindowEvent},
     window::{Fullscreen, WindowBuilder},
@@ -35,8 +36,30 @@ fn main() {
     let context = unsafe { softbuffer::Context::new(&window) }.unwrap();
     let mut surface = unsafe { softbuffer::Surface::new(&context, &window) }.unwrap();
 
+    // let mut scene = scene::Scene::new(
+    //     vec![Object::load_from_stl("test models/basics/suzanne_hd.stl").unwrap()],
+    //     window.inner_size().width,
+    //     window.inner_size().height,
+    // );
+
+    
+    let mut suzanne_uv = Object::load_many_from_obj("test models/uv mapping/suzanne_uv.obj").unwrap().pop().unwrap();
+    suzanne_uv.rotation = Rotor3::from_rotation_xy(PI);
+    let mut suzanne_hd = Object::load_from_stl("test models/basics/suzanne_hd.stl").unwrap();
+        suzanne_hd.position += 3. * Vec3::unit_y();
+    let mut torus = Object::load_from_stl("test models/basics/torus.stl").unwrap();
+        // torus.position += 3. * Vec3::unit_x();
+    let mut cube = Object::load_from_stl("test models/basics/cube.stl").unwrap();
+        cube.position -= 3. * Vec3::unit_x();
+    
     let mut scene = scene::Scene::new(
-        vec![Object::load_from_stl("test models/basics/suzanne_hd.stl").unwrap()],
+        vec![
+            // suzanne_uv,
+            // suzanne_hd,
+            torus,
+            // cube,
+
+            ],
         window.inner_size().width,
         window.inner_size().height,
     );

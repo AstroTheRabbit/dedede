@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use crate::{aabb::AABB, camera::Camera, input_manager::InputManager, object::Object};
 use softbuffer::Buffer;
-use ultraviolet::{Rotor3, Vec2, Vec3};
+use ultraviolet::{Rotor3, Vec3};
 use winit::event::VirtualKeyCode;
 
 pub struct Scene {
@@ -67,15 +67,6 @@ impl Scene {
     }
 
     pub fn render(&mut self, buffer: &mut Buffer, width: u32, height: u32) {
-        fn get_uv_test_color(uv: Vec2) -> u32 {
-            ((255. * uv.x) as u32) << 16
-                | ((127.5 * (uv.x + uv.y)) as u32) << 8
-                | (255. * uv.y) as u32
-        }
-        let u0 = Vec2::new(1., 0.);
-        let u1 = Vec2::new(0., 1.);
-        let u2 = Vec2::new(1., 1.);
-
         self.camera.update_screen_dimensions(width, height);
         let camera_space_transform = self.camera.get_local_space_transform();
         let mut depth_buffer = vec![f32::INFINITY; width as usize * height as usize];
@@ -95,34 +86,22 @@ impl Scene {
                 let v1 = screen_tri.v1;
                 let v2 = screen_tri.v2;
                 let wd = (v1.y - v2.y) * (v0.x - v2.x) + (v2.x - v1.x) * (v0.y - v2.y);
-
-                if z_depth[0] < 1.
-                    && z_depth[1] < 1.
-                    && z_depth[2] < 1.
-                    && z_depth[0] > 0.
-                    && z_depth[1] > 0.
-                    && z_depth[2] > 0.
-                {
-                    let tri_aabb = AABB::from(&screen_tri).intersection(&self.camera.screen_aabb);
-
-                    for p in tri_aabb {
-                        let idx = p.y as usize * width as usize + p.x as usize;
-                        // TODO: Replace z_depth[0] with barycentric depth calc.
-                        if z_depth[0] < depth_buffer[idx] {
-                            let w0 =
-                                ((v1.y - v2.y) * (p.x - v2.x) + (v2.x - v1.x) * (p.y - v2.y)) / wd;
-                            let w1 =
-                                ((v2.y - v0.y) * (p.x - v2.x) + (v0.x - v2.x) * (p.y - v2.y)) / wd;
+                
+                if wd.is_normal() {
+                    if let Some(tri_aabb) = AABB::from(&screen_tri).intersection(&self.camera.screen_aabb) {
+                        for p in tri_aabb {
+                            let w0 = ((v1.y - v2.y) * (p.x - v2.x) + (v2.x - v1.x) * (p.y - v2.y)) / wd;
+                            let w1 = ((v2.y - v0.y) * (p.x - v2.x) + (v0.x - v2.x) * (p.y - v2.y)) / wd;
                             let w2 = 1. - w0 - w1;
+                            
+                            if w0 > 0. && w1 > 0. && w2 > 0. {
+                                let pz = w0 * z_depth[0] + w1 * z_depth[1] + w2 * z_depth[2];
+                                let idx = p.y as usize * width as usize + p.x as usize;
 
-                            if w0.is_sign_positive()
-                                && w1.is_sign_positive()
-                                && w2.is_sign_positive()
-                            {
-                                depth_buffer[idx] = z_depth[0];
-                                buffer[idx] = get_uv_test_color(w0 * u0 + w1 * u1 + w2 * u2);
-                            } else {
-                                buffer[idx] = 100 << 16 | 100 << 8 | 100;
+                                if pz > 0. && pz < 1. && pz < depth_buffer[idx] {
+                                    depth_buffer[idx] = pz;
+                                    buffer[idx] = u32::MAX;
+                                }
                             }
                         }
                     }

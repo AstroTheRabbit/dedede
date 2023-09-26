@@ -32,18 +32,26 @@ impl AABB {
         point.x > self.min_x && point.x < self.max_x && point.y > self.min_y && point.y < self.max_y
     }
 
-    /// Returns the intersection of `self` and `other` as a new `AABB`.
-    pub fn intersection(&self, other: &Self) -> Self {
-        Self {
-            min_x: f32::max(self.min_x, other.min_x),
-            max_x: f32::min(self.max_x, other.max_x),
-            min_y: f32::max(self.min_y, other.min_y),
-            max_y: f32::min(self.max_y, other.max_y),
-        }
+    fn intersects(&self, other: &Self) -> bool {
+        self.max_x > other.min_x && other.max_x > self.min_x &&
+        self.max_y > other.min_y && other.max_y > self.min_y
     }
 
-    pub fn size(&self) -> f32 {
-        (self.max_x - self.min_x) * (self.max_y - self.min_y)
+    /// Returns the intersection of `self` and `other` as a new `AABB`.
+    /// Result is `None` if `self` and `other` do not intersect.
+    pub fn intersection(&self, other: &Self) -> Option<Self> {
+        if self.intersects(other) {
+            Some(
+                Self {
+                    min_x: f32::max(self.min_x, other.min_x),
+                    max_x: f32::min(self.max_x, other.max_x),
+                    min_y: f32::max(self.min_y, other.min_y),
+                    max_y: f32::min(self.max_y, other.max_y),
+                }
+            )
+        } else {
+            None
+        }
     }
 }
 
@@ -72,13 +80,14 @@ pub struct AABBIter {
     inner: AABB,
     x: f32,
     y: f32,
+    ran_size_check: bool,
 }
 
 impl AABBIter {
     fn new(inner: AABB) -> Self {
         let x = inner.min_x.floor();
         let y = inner.min_y.floor();
-        Self { inner, x, y }
+        Self { inner, x, y, ran_size_check: false }
     }
 }
 
@@ -86,16 +95,26 @@ impl Iterator for AABBIter {
     type Item = Vec2;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.x > self.inner.max_x.floor() {
-            self.x = self.inner.min_x.floor();
-            self.y += 1.;
-
-            if self.y > self.inner.max_y.floor() {
+        if !self.ran_size_check {
+            if self.inner.max_x - self.inner.min_x < 1. || self.inner.max_y - self.inner.min_y < 1. {
                 return None;
+            } else {
+                self.ran_size_check = true;
             }
         }
-        let res = Vec2::new(self.x, self.y);
-        self.x += 1.;
-        return Some(res);
+
+        if self.x < self.inner.max_x {
+            if self.y < self.inner.max_y {
+                let x = self.x;
+                self.x += 1.;
+                return Some(Vec2::new(x, self.y));
+            } else {
+                return None;
+            }
+        } else {
+            self.x = self.inner.min_x.floor();
+            self.y += 1.;
+            return self.next();
+        }
     }
 }
