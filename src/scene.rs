@@ -2,8 +2,8 @@ use std::time::{Duration, Instant};
 
 use crate::{aabb::AABB, camera::Camera, input_manager::InputManager, object::Object};
 use softbuffer::Buffer;
-use ultraviolet::{Rotor3, Vec3};
-use winit::event::VirtualKeyCode;
+use ultraviolet::{Rotor3, Vec3, Vec2};
+use winit::{event::VirtualKeyCode, window::{Window, CursorGrabMode}};
 
 pub struct Scene {
     pub objects: Vec<Object>,
@@ -36,13 +36,24 @@ impl Scene {
         now - prev
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, window: &mut Window) {
         let delta_time = self.update_delta_time().as_millis() as f32;
+        
+        if self.input_manager.is_keycode_held(VirtualKeyCode::Escape) {
+            self.input_manager.cursor_visible = true;
+            self.input_manager.cursor_mode = CursorGrabMode::None;
+        } else if self.input_manager.is_mouse_button_held(winit::event::MouseButton::Left) {
+            self.input_manager.cursor_visible = false;
+            self.input_manager.cursor_mode = CursorGrabMode::Locked;
+        }
+        window.set_cursor_visible(self.input_manager.cursor_visible);
+        window.set_cursor_grab(self.input_manager.cursor_mode).unwrap();
 
         if self.input_manager.is_keycode_held(VirtualKeyCode::W) {
             self.camera.position +=
                 0.001 * delta_time * Vec3::unit_z().rotated_by(self.camera.rotation);
-        } else if self.input_manager.is_keycode_held(VirtualKeyCode::S) {
+        }
+        if self.input_manager.is_keycode_held(VirtualKeyCode::S) {
             self.camera.position -=
                 0.001 * delta_time * Vec3::unit_z().rotated_by(self.camera.rotation);
         }
@@ -50,7 +61,8 @@ impl Scene {
         if self.input_manager.is_keycode_held(VirtualKeyCode::A) {
             self.camera.position +=
                 0.001 * delta_time * Vec3::unit_x().rotated_by(self.camera.rotation);
-        } else if self.input_manager.is_keycode_held(VirtualKeyCode::D) {
+        }
+        if self.input_manager.is_keycode_held(VirtualKeyCode::D) {
             self.camera.position -=
                 0.001 * delta_time * Vec3::unit_x().rotated_by(self.camera.rotation);
         }
@@ -58,18 +70,27 @@ impl Scene {
         if self.input_manager.is_keycode_held(VirtualKeyCode::LControl) {
             self.camera.position +=
                 0.001 * delta_time * Vec3::unit_y().rotated_by(self.camera.rotation);
-        } else if self.input_manager.is_keycode_held(VirtualKeyCode::Space) {
+        }
+        if self.input_manager.is_keycode_held(VirtualKeyCode::Space) {
             self.camera.position -=
                 0.001 * delta_time * Vec3::unit_y().rotated_by(self.camera.rotation);
         }
 
-        self.objects[0].rotation = self.objects[0].rotation * Rotor3::from_rotation_xz(0.01);
+        if !self.input_manager.cursor_visible {
+            let mouse_delta = self.input_manager.use_mouse_delta();
+            let sensitivity = Vec2::new(0.004, 0.003);
+            self.camera.rotation = Rotor3::from_rotation_xz(mouse_delta.x * sensitivity.x) * self.camera.rotation;
+            // self.camera.rotation = Rotor3::from_rotation_yz(mouse_delta.y * sensitivity.y) * self.camera.rotation;
+            self.camera.rotation.normalize();
+        }
+        
+        // dbg!(self.camera.rotation);
     }
 
     pub fn render(&mut self, buffer: &mut Buffer, width: u32, height: u32) {
         self.camera.update_screen_dimensions(width, height);
         let camera_space_transform = self.camera.get_local_space_transform();
-        let mut depth_buffer = vec![f32::INFINITY; width as usize * height as usize];
+        let mut depth_buffer = vec![1.; width as usize * height as usize];
 
         for obj in &self.objects {
             let transform = obj.get_transform();
@@ -79,8 +100,9 @@ impl Scene {
                 let local_tri = tri
                     .apply_transform(transform)
                     .apply_transform(camera_space_transform);
-                let (screen_tri, z_depth) = self.camera.project_triangle(local_tri);
 
+                let (screen_tri, z_depth) = self.camera.project_triangle(local_tri);
+                
                 // ? Barycentric coordinates: https://www.desmos.com/calculator/ovebiysjce
                 let v0 = screen_tri.v0;
                 let v1 = screen_tri.v1;
@@ -98,9 +120,13 @@ impl Scene {
                                 let pz = w0 * z_depth[0] + w1 * z_depth[1] + w2 * z_depth[2];
                                 let idx = p.y as usize * width as usize + p.x as usize;
 
-                                if pz > 0. && pz < 1. && pz < depth_buffer[idx] {
+                                if pz > 0. && pz.abs() < depth_buffer[idx] {
                                     depth_buffer[idx] = pz;
-                                    buffer[idx] = u32::MAX;
+                                    if w0 < 0.01 || w1 < 0.01 || w2 < 0.01 {
+                                        buffer[idx] = 255 << 16;
+                                    } else {
+                                        buffer[idx] = 0;
+                                    }
                                 }
                             }
                         }
@@ -108,5 +134,15 @@ impl Scene {
                 }
             }
         }
+
+        // let max_z = depth_buffer.iter().filter(|v| v.is_finite()).max_by(|a,b| a.total_cmp(b)).unwrap_or(&1.);
+        // let min_z = depth_buffer.iter().filter(|v| v.is_finite()).min_by(|a,b| a.total_cmp(b)).unwrap_or(&0.);
+        // for (i, p) in buffer.iter_mut().enumerate() {
+        //     if *p == 0 {
+        //         let z = depth_buffer[i];
+        //         let v = 255 - (255. * (z - min_z) / (max_z - min_z)) as u32;
+        //         *p = v;
+        //     }
+        // }
     }
 }

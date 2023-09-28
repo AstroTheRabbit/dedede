@@ -19,13 +19,13 @@ use object::Object;
 use ultraviolet::{Rotor3, Vec3};
 use std::{num::NonZeroU32, f32::consts::PI};
 use winit::{
-    event::{Event, WindowEvent},
-    window::{Fullscreen, WindowBuilder},
+    event::{Event, WindowEvent, DeviceEvent},
+    window::{Fullscreen, WindowBuilder, CursorGrabMode},
 };
 
 fn main() {
     let event_loop = winit::event_loop::EventLoop::new();
-    let window = WindowBuilder::new()
+    let mut window = WindowBuilder::new()
         .with_active(true)
         .with_title("DeDeDe")
         // .with_inner_size(LogicalSize::new(800, 400))
@@ -43,22 +43,33 @@ fn main() {
     // );
 
     
-    let mut suzanne_uv = Object::load_many_from_obj("test models/uv mapping/suzanne_uv.obj").unwrap().pop().unwrap();
-    suzanne_uv.rotation = Rotor3::from_rotation_xy(PI);
-    let mut suzanne_hd = Object::load_from_stl("test models/basics/suzanne_hd.stl").unwrap();
-        suzanne_hd.position += 3. * Vec3::unit_y();
-    let mut torus = Object::load_from_stl("test models/basics/torus.stl").unwrap();
-        // torus.position += 3. * Vec3::unit_x();
+    // let mut suzanne_uv = Object::load_many_from_obj("test models/uv mapping/suzanne_uv.obj").unwrap().pop().unwrap();
+    // suzanne_uv.rotation = Rotor3::from_rotation_xy(PI);
+    // let mut suzanne_hd = Object::load_from_stl("test models/basics/suzanne_hd.stl").unwrap();
+    //     suzanne_hd.position += 3. * Vec3::unit_y();
+    // let mut torus = Object::load_from_stl("test models/basics/torus.stl").unwrap();
+    //     torus.position += 3. * Vec3::unit_x();
     let mut cube = Object::load_from_stl("test models/basics/cube.stl").unwrap();
-        cube.position -= 3. * Vec3::unit_x();
+    //     cube.position -= 3. * Vec3::unit_x();
+
+    // let triangle = Object {
+    //     position: Vec3::zero(),
+    //     rotation: Rotor3::identity(),
+    //     vertices: vec![Vec3::zero(), Vec3::unit_x(), Vec3::unit_y(), Vec3::unit_z()],
+    //     triangles: vec![[0,1,2],[0,1,3],[0,2,3]],
+    //     normals: vec![],
+    //     uv_coords: vec![],
+    //     textures: vec![],
+    // };
+
     
     let mut scene = scene::Scene::new(
         vec![
             // suzanne_uv,
             // suzanne_hd,
-            torus,
-            // cube,
-
+            // torus,
+            cube,
+            // triangle,
             ],
         window.inner_size().width,
         window.inner_size().height,
@@ -69,7 +80,7 @@ fn main() {
 
         match event {
             Event::MainEventsCleared | Event::RedrawRequested(_) => {
-                scene.update();
+                scene.update(&mut window);
 
                 let (width, height) = (window.inner_size().width, window.inner_size().height);
                 surface
@@ -101,6 +112,15 @@ fn main() {
                     // WindowEvent::CursorEntered { device_id } => todo!(),
                     // WindowEvent::CursorLeft { device_id } => todo!(),
                     // WindowEvent::MouseWheel { device_id, delta, phase, .. } => todo!(),
+                    _ => {}
+                }
+            }
+
+            Event::DeviceEvent { event, .. } => {
+                match event {
+                    DeviceEvent::MouseMotion { delta } => {
+                        scene.input_manager.handle_mouse_movement(delta);
+                    }
                     _ => {}
                 }
             }

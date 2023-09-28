@@ -1,4 +1,6 @@
 *.DS_Store
+*.blend
+*.blend1
 .vscode
 target
 Cargo.lock
